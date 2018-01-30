@@ -3,15 +3,21 @@
 """
 Corrected, the thread stops now.
 """
-
+import argparse
 import sys
 import os
-from OSC import OSCClient, OSCMessage
+from pythonosc import osc_message_builder
+from pythonosc import udp_client
+
 
 from time import sleep
 
-import gtk
-gtk.gdk.threads_init()
+import gi
+gi.require_version('Gtk', '3.0')
+
+from gi.repository import Gtk, GObject
+
+#Gtk.gdk.threads_init()
 
 import threading
 
@@ -24,8 +30,16 @@ screen_root = display.Display().screen().root
 old_stdout = sys.stdout
 sys.stdout = open(os.devnull, 'w')
 
-client = OSCClient()
-client.connect( ("192.168.1.125", 7110) )
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--ip", default="192.168.0.104",
+      help="The ip of the OSC server")
+  parser.add_argument("--port", type=int, default=5005,
+      help="The port the OSC server is listening on")
+  args = parser.parse_args()
+
+  client = udp_client.SimpleUDPClient(args.ip, args.port)
+
 
 
 def mousepos():
@@ -47,7 +61,7 @@ class MouseThread(threading.Thread):
                     break
                 text = "{0}".format(mousepos())
                 self.label.set_text(text)
-                client.send( OSCMessage("/MousePos", [text] ) )
+                client.send_message("/MousePos", mousepos() )
                 sleep(0.04)
         except (KeyboardInterrupt, SystemExit):
             sys.exit()
@@ -60,22 +74,23 @@ class MouseThread(threading.Thread):
 
 
 
-class PyApp(gtk.Window):
+class PyApp(Gtk.Window):
 
     def __init__(self):
         super(PyApp, self).__init__()
 
+
         self.set_title("Mouse coordinates 0.1")
         self.set_size_request(250, 50)
-        self.set_position(gtk.WIN_POS_CENTER)
+        #self.set_position(Gtk.WIN_POS_CENTER)
         self.connect("destroy", self.quit)
 
-        label = gtk.Label()
+        label = Gtk.Label()
 
         self.mouseThread = MouseThread(self, label)
         self.mouseThread.start()
 
-        fixed = gtk.Fixed()
+        fixed = Gtk.Fixed()
         fixed.put(label, 10, 10)
 
         self.add(fixed)
@@ -83,9 +98,9 @@ class PyApp(gtk.Window):
 
     def quit(self, widget):
         self.mouseThread.kill()
-        gtk.main_quit()
+        Gtk.main_quit()
 
 
 if __name__ == '__main__':
     app = PyApp()
-    gtk.main()
+    Gtk.main()
